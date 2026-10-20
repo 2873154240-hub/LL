@@ -1,32 +1,66 @@
-# 生产部署指南（Zeabur / PaaS 单容器）
+# 生产部署指南（国内云服务器为主）
 
-本文件指导把「明析 AI」正式上线到公网。项目已内置单容器部署能力：
-一个 Dockerfile 同时构建前端并把产物交给后端托管，PaaS 平台一键运行即可。
+本文件指导把「明析 AI」正式上线到公网，供国内用户访问。**推荐方案是国内云服务器原生部署**（Nginx + uvicorn + systemd），访问快、可控、可长期运营。仓库同时保留了 Dockerfile（供 Fly.io 等境外 PaaS 使用）。
+
+> ⚠️ 说明：Zeabur 已于 2026 年宣布停止运营（2026-12-31 全部停运、不再接受新注册），不要再用。
 
 ---
 
 ## 1. 部署方式概览
 
-- **技术形态**：单容器。后端 FastAPI 直接托管前端构建产物 `web/dist` + `/api` 接口。
-- **推荐平台**：Zeabur（国内访问相对友好、提供免费子域名、无需自购服务器）。
-- **无域名怎么办**：Zeabur 会给你 `xxx.zeabur.app` 免费子域名，可直接对外访问；以后想换自己的域名随时可绑。
+- **推荐（国内访问最快）**：国内云服务器（阿里云/腾讯云轻量应用服务器）+ Nginx 托管前端 + systemd 守护后端。
+- **备选（境外 PaaS）**：Fly.io 等能跑 Docker 容器的平台，用根目录 `Dockerfile` 一键部署；但服务器在境外，国内访问偏慢。
+- **代码托管**：已推到 GitHub `2873154240-hub/LL`，服务器从 GitHub 拉取。
 
 ---
 
-## 2. Zeabur 部署步骤
+## 2. 国内云服务器部署步骤
 
-1. 打开 <https://zeabur.com>，注册 / 登录（可用 GitHub 或邮箱）。
-2. 创建新项目（Project）。
-3. 添加服务（Service）→ 选择「从源码部署 / Git 或本地目录」：
-   - 若走 Git：把本项目推到 GitHub，选择仓库，Zeabur 会自动识别根目录 `Dockerfile`。
-   - 若走 CLI：安装 `zeabur` CLI 后 `zeabur deploy` 并选择项目。
-4. 平台会自动用根目录 `Dockerfile` 构建（先 npm 构建前端，再跑后端）。
-5. 在服务「Variables」里配置生产环境变量（见下节）。
-6. 服务会分配公网域名（`*.zeabur.app`），直接打开即可访问。
+### 2.1 购买服务器
+
+- 推荐 **腾讯云轻量应用服务器 / 阿里云轻量应用服务器**，2核2G 或 2核4G，Ubuntu 22.04 或 Debian 12。
+- 价格约 ¥30–100/月（新用户常有折扣）。地域选**离用户近的城市**（如你在佛山/肇庆，可选广州/深圳）。
+- 购买后在安全组/防火墙放行 **80（HTTP）** 和 **22（SSH）** 端口（后端 8322 只在内网监听，不需对外）。
+
+### 2.2 一键部署
+
+服务器上执行（需 root 或 sudo，脚本已备好并随仓库推送）：
+
+```bash
+# 首次：clone 仓库并运行部署脚本
+sudo apt-get update && sudo apt-get install -y git
+git clone git@github.com:2873154240-hub/LL.git /opt/mingxi-ai
+cd /opt/mingxi-ai
+sudo bash deploy_server.sh
+```
+
+> 服务器访问 GitHub 需在服务器上配置 SSH 密钥并加到 GitHub（与本地做法相同，用 `ssh.github.com:443`）。
+
+脚本会自动完成：装依赖 → 构建前端 → 装后端 → 配置 systemd + Nginx → 启动。
+
+### 2.3 上线后必做
+
+部署脚本会在首次运行时从模板生成 `backend/.env`（`DEV_RETURN_CODE=0` 已默认）。**务必编辑 `/opt/mingxi-ai/backend/.env` 填写：**
+
+| 变量 | 要求 |
+|---|---|
+| `SECRET_KEY` | 一长串随机字符串（**必须换**） |
+| `SMTP_HOST/PORT/USER/PASSWORD` | 你的 QQ 邮箱 + 授权码（真实发验证码） |
+| `OWNER_EMAIL` | `2873154240@qq.com` |
+
+改完执行 `systemctl restart mingxi-ai` 生效。
+
+### 2.4 配置域名 + HTTPS（可选但推荐）
+
+有域名后：
+- 把域名 A 记录指向服务器公网 IP；
+- 用 certbot 申请免费 SSL：`sudo apt-get install -y certbot python3-certbot-nginx && sudo certbot --nginx -d 你的域名`；
+- 脚本里 `DOMAIN` 变量已预留，改后重跑或手动改 Nginx server_name。
 
 ---
 
-## 3. 必须配置的生产环境变量
+## 3. 必须配置的生产环境变量（通用）
+
 
 在 Zeabur 服务 Variables 中设置以下项（**不要**把 `backend/.env` 提交或打包进镜像，
 PaaS 用平台变量注入；代码 `load_dotenv(override=False)` 已保证平台变量优先）。
