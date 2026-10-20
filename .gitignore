@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# 数据库（含开发期测试账号）
+backend/data/*.db
+backend/data/*.db-journal
+backend/data/*.db-wal
+backend/data/*.db-shm
+
+# 本地配置与密钥
+.env
+backend/.env
+
+# 站点开关的运行时状态（由所有者切换，不入库）
+backend/data/site_state.json
+
+# Node / 前端构建产物
+node_modules/
+web/dist/
+*.local
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 临时验证产物
+_shots/
+_probe.json
+_e2e_result.json
+
+# 本地源码归档，不入库
+web-source.txt
+web-source.zip
+

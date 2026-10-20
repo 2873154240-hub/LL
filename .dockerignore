@@ -1,0 +1,29 @@
+# 敏感与无需进入 Docker 构建上下文的内容
+**/.env
+**/.env.*
+!**/.env.example
+
+# 依赖 / 构建产物（镜像内重新安装/构建）
+**/node_modules
+**/dist
+**/.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+
+# 数据库与运行时状态（不应打进镜像）
+backend/data/
+
+# 本地杂项
+.git
+.gitignore
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.DS_Store
+Thumbs.db
+web-source.zip
+web-source.txt
+DEPLOY.md
+README.md

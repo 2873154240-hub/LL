@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>明析 AI · 决策研究台</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+</head>
+<body>
+  <!-- 启动遮罩：先校验登录态，避免页面闪一下再跳登录 -->
+  <div id="boot" class="site-off" style="background: var(--bg-primary)">
+    <div class="spinner dark"></div>
+  </div>
+
+  <!-- 站点维护页（所有访客在关站时看到；所有者可在这里重新开启） -->
+  <div id="siteOff" class="site-off" hidden>
+    <div class="site-off-card">
+      <div class="site-off-mark">析</div>
+      <h1>站点维护中</h1>
+      <p id="siteOffMessage">站点暂时关闭，请稍后再试。</p>
+      <div id="siteOffOwner"></div>
+      <div class="site-off-time" id="siteOffTime"></div>
+    </div>
+  </div>
+
+  <!-- 登录 / 注册：独立全屏布局 -->
+  <div id="authPage" hidden>
+    <div class="auth-wrap" id="loginView">
+      <div class="card auth-card">
+        <h1>登录明析 AI</h1>
+        <p class="sub">标的 AI 自主研究台</p>
+        <form class="auth-form" id="loginForm">
+          <div class="error" id="loginError" hidden></div>
+          <div>
+            <label class="label" for="loginEmail">邮箱地址</label>
+            <input class="input" id="loginEmail" type="email" required placeholder="you@example.com" autocomplete="email">
+          </div>
+          <div>
+            <label class="label" for="loginPassword">密码</label>
+            <input class="input" id="loginPassword" type="password" required placeholder="请输入密码" autocomplete="current-password">
+          </div>
+          <button class="btn btn-primary" id="loginSubmit" style="justify-content:center;padding:12px">登录</button>
+        </form>
+        <div class="auth-foot">还没有账号？<a href="#/register">注册</a></div>
+        <div class="auth-foot" style="margin-top:8px">新用户每天有 50 个免费 Token，可直接体验研究台。</div>
+      </div>
+    </div>
+
+    <div class="auth-wrap" id="registerView" hidden>
+      <div class="card auth-card">
+        <h1>注册账号</h1>
+        <p class="sub">注册即获每日 50 个免费 Token</p>
+        <form class="auth-form" id="registerForm">
+          <div class="error" id="registerError" hidden></div>
+          <div>
+            <label class="label" for="regEmail">邮箱地址</label>
+            <input class="input" id="regEmail" type="email" required placeholder="you@example.com" autocomplete="email">
+          </div>
+          <div>
+            <label class="label" for="regCode">邮箱验证码</label>
+            <div class="code-row">
+              <input class="input" id="regCode" required placeholder="6 位验证码">
+              <button type="button" class="btn" id="regSendCode">获取验证码</button>
+            </div>
+            <div class="dev-code" id="regDevCode" hidden></div>
+          </div>
+          <div>
+            <label class="label" for="regPassword">密码</label>
+            <input class="input" id="regPassword" type="password" required minlength="6" placeholder="至少 6 位" autocomplete="new-password">
+          </div>
+          <button class="btn btn-primary" id="registerSubmit" style="justify-content:center;padding:12px">注册</button>
+        </form>
+        <div class="auth-foot">已有账号？<a href="#/login">登录</a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主应用外壳 -->
+  <div class="app" id="appShell" hidden>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="#/">
+          <span class="brand-mark">析</span>
+          <span>
+            <span class="brand-name">明析 AI</span>
+            <span class="brand-sub">决策研究台</span>
+          </span>
+        </a>
+        <nav class="nav" id="mainNav">
+          <a href="#/" data-route="/">研究台</a>
+          <a href="#/history" data-route="/history">历史记录</a>
+          <a href="#/me" data-route="/me">我的</a>
+        </nav>
+        <div class="topbar-right">
+          <div id="btcChip"></div>
+          <div class="balance-chip" title="今日免费额度 + 付费余额">
+            <span>Token</span><b id="topBalance">—</b>
+          </div>
+          <a class="btn btn-sm btn-lime" href="#/me">充值</a>
+          <div class="avatar" id="avatar" title="">U</div>
+          <button class="btn btn-sm btn-ghost" id="logoutBtn" style="color:rgba(233,237,230,.7)">退出</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- ==================== 研究台 ==================== -->
+      <section class="container" id="pageResearch" hidden>
+        <div class="hero">
+          <div class="hero-top">
+            <h1>让 AI 替你<em>读完行情</em>，再给结论。</h1>
+            <div class="hero-live" id="heroLive">
+              <span class="live-dot"></span>
+              <span id="heroLiveText">LIVE · 连接中</span>
+            </div>
+          </div>
+          <p>
+            选择标的与周期，系统会拉取最新 K 线、计算技术指标与波动结构，输出方向判断、执行计划、
+            关键价位和一份可直接执行的事件合约建议。每次消耗 <span id="heroCost">10</span> Token。
+          </p>
+        </div>
+
+        <div class="research-grid">
+          <aside class="card control-panel">
+            <div class="section-title">
+              标的 · USDT 永续
+              <span class="title-count" id="symbolTotal">—</span>
+            </div>
+            <div class="symbol-filters">
+              <input class="input" id="searchInput" placeholder="搜索代码或名称" autocomplete="off">
+              <select class="select sector-select" id="sectorSelect" aria-label="按类别筛选">
+                <option value="">全部类别</option>
+              </select>
+            </div>
+            <div class="live-line" id="liveLine">
+              <span class="live-dot"></span>
+              <span id="liveLineText">实时行情 · 连接中</span>
+            </div>
+            <div class="symbol-list" id="symbolList"></div>
+            <div class="field-row">
+              <div>
+                <label class="label" for="timeframeSelect">分析周期</label>
+                <select class="select" id="timeframeSelect">
+                  <option value="15m">15 分钟</option>
+                  <option value="1h" selected>1 小时</option>
+                  <option value="4h">4 小时</option>
+                  <option value="1d">日线</option>
+                </select>
+              </div>
+              <div>
+                <label class="label" for="modelSelect">研究模型</label>
+                <select class="select" id="modelSelect"></select>
+              </div>
+            </div>
+            <div class="run-box">
+              <div class="spread" style="margin-bottom:10px">
+                <span class="muted" style="font-size:12.5px">当前标的</span>
+                <b class="mono" id="currentSymbol">—</b>
+              </div>
+              <button class="btn btn-primary run-btn" id="runBtn" disabled>开始 AI 研究（<span id="runCost">10</span> Token）</button>
+              <div class="tips">结果仅供学习与决策参考，不构成投资建议。系统不会连接交易所，也不会自动下单。</div>
+            </div>
+          </aside>
+
+          <section>
+            <div id="researchError"></div>
+            <div id="livePanel"></div>
+            <div id="resultArea"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ==================== 历史记录 ==================== -->
+      <section class="container" id="pageHistory" hidden>
+        <div id="historyListView">
+          <div class="hero" style="margin-bottom:18px">
+            <h1>历史记录</h1>
+            <p>每条记录保存的是生成当时的完整快照：价格、指标、结论与执行计划都不会随行情变化而改变。</p>
+          </div>
+          <div class="card list-card">
+            <div class="list-head">
+              <h2 style="margin:0">全部研究</h2>
+              <span class="chip" id="historyTotal">0 条</span>
+              <div class="grow"></div>
+              <input class="input" id="historySearch" style="max-width:260px" placeholder="搜索代码 / 周期 / 结论">
+              <button class="btn" id="historyRefresh">刷新</button>
+              <button class="btn btn-danger" id="historyClear" disabled>清空</button>
+            </div>
+            <div class="error" id="historyError" style="margin:14px 20px" hidden></div>
+            <div id="historyBody"></div>
+          </div>
+        </div>
+        <div id="historyDetailView" hidden>
+          <div class="spread" style="margin-bottom:16px">
+            <button class="btn" id="historyBack">← 返回历史记录</button>
+            <span class="muted" style="font-size:12.5px" id="historyDetailId"></span>
+          </div>
+          <div id="historyDetail"></div>
+        </div>
+      </section>
+
+      <!-- ==================== 我的 ==================== -->
+      <section class="container" id="pageMe" hidden>
+        <div class="hero" style="margin-bottom:18px">
+          <h1>我的账户</h1>
+          <p>管理 Token 余额、充值记录与账户安全。每日免费额度按 UTC 零点重置。</p>
+        </div>
+
+        <div class="error" id="meError" style="margin-bottom:14px" hidden></div>
+        <div class="dev-code" id="meNotice" style="margin-bottom:14px" hidden></div>
+
+        <div class="stat-grid" style="margin-bottom:18px">
+          <div class="card stat">
+            <div class="k">可用 Token</div>
+            <div class="v" id="statAvailable">—</div>
+            <div class="s" id="statAvailableSub">—</div>
+          </div>
+          <div class="card stat">
+            <div class="k">今日免费额度</div>
+            <div class="v" id="statFree">—</div>
+            <div class="s">每天零点重置</div>
+          </div>
+          <div class="card stat">
+            <div class="k">累计研究</div>
+            <div class="v" id="statRuns">—</div>
+            <div class="s" id="statRunsSub">—</div>
+          </div>
+          <div class="card stat">
+            <div class="k">今日已用免费额度</div>
+            <div class="v" id="statUsed">—</div>
+            <div class="s" id="statUsedSub">—</div>
+          </div>
+        </div>
+
+        <div id="ownerSwitch"></div>
+
+        <div id="paymentCard"></div>
+
+        <div class="grid-2" style="margin-bottom:18px">
+          <div class="card" style="padding:20px">
+            <div class="section-title">账户信息</div>
+            <div class="reason-list" style="font-size:13.5px">
+              <div class="spread"><span class="muted">邮箱</span><b id="accountEmail">—</b></div>
+              <div class="spread"><span class="muted">昵称</span><span id="accountNickname">—</span></div>
+              <div class="spread"><span class="muted">注册时间</span><span class="muted" style="font-size:12px" id="accountCreated">—</span></div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:20px">
+            <div class="section-title">充值 · 按 USDT 自填金额</div>
+            <div class="row" id="amountPresets" style="flex-wrap:wrap;margin-bottom:10px">
+              <button class="btn" data-val="1">1 USDT</button>
+              <button class="btn btn-lime" data-val="5">5 USDT</button>
+              <button class="btn" data-val="10">10 USDT</button>
+              <button class="btn" data-val="50">50 USDT</button>
+            </div>
+            <label class="label" for="amountInput">充值金额（USDT）</label>
+            <input class="input" id="amountInput" type="number" inputmode="decimal" min="1" max="10000" step="1" value="5" style="margin-bottom:6px">
+            <div class="muted" id="rangeHint" style="font-size:11.5px;margin-bottom:10px">单笔 1–10000 USDT，1 USDT = 100 Token</div>
+            <div class="spread" style="margin-bottom:6px">
+              <span class="muted" style="font-size:12.5px">预计到账</span>
+              <b class="mono" id="estTokens">500 Token</b>
+            </div>
+            <div class="spread" style="margin-bottom:12px">
+              <span class="muted" style="font-size:12.5px">折合人民币</span>
+              <b class="mono" id="estCny">¥36.00</b>
+            </div>
+            <button class="btn btn-primary run-btn" id="rechargeBtn" disabled>创建支付订单</button>
+            <div class="tips" id="rechargeTip">正在读取支付配置…</div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:18px">
+          <div class="card" style="padding:20px">
+            <div class="section-title">修改密码</div>
+            <form class="auth-form" id="passwordForm" style="gap:10px">
+              <div>
+                <label class="label" for="pwCode">邮箱验证码</label>
+                <div class="code-row">
+                  <input class="input" id="pwCode" required placeholder="6 位验证码">
+                  <button type="button" class="btn" id="pwSend">发送验证码</button>
+                </div>
+              </div>
+              <div>
+                <label class="label" for="pwNew">新密码</label>
+                <input class="input" id="pwNew" type="password" required minlength="6" placeholder="至少 6 位">
+              </div>
+              <button class="btn" id="pwSubmit">更新密码</button>
+            </form>
+          </div>
+
+          <div class="card" style="padding:20px">
+            <div class="section-title">使用说明</div>
+            <ul class="reason-list" style="font-size:13px">
+              <li><span class="w">01</span><span>每次 AI 研究固定消耗 <span id="noteCost">10</span> Token，优先扣免费额度。</span></li>
+              <li><span class="w">02</span><span>研究失败会自动全额退回，不会产生费用。</span></li>
+              <li><span class="w">03</span><span>历史记录保存在服务端，删除后不可恢复。</span></li>
+              <li><span class="w">04</span><span>所有结果仅供参考，不构成投资建议。</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card list-card">
+          <div class="list-head">
+            <div class="tabs" style="margin-bottom:0;border-bottom:0">
+              <button class="active" id="ledgerTab">Token 流水</button>
+              <button id="ordersTab">充值订单</button>
+            </div>
+            <div class="grow"></div>
+            <span class="chip" id="paidCount" hidden></span>
+          </div>
+          <div id="meListBody"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      明析 AI · 研究结果仅供学习与决策参考，不构成投资建议，不会自动向交易所提交订单。
+    </footer>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
